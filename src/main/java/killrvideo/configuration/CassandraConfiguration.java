@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 import javax.inject.Inject;
 
 //import com.sun.tools.javac.code.Type;
+import com.datastax.driver.dse.DseCluster;
 import com.google.common.util.concurrent.ListenableFuture;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -65,7 +66,7 @@ public class CassandraConfiguration {
 
             LOGGER.info(String.format("Retrieving cassandra hosts %s and port %s from etcd", cassandraHosts, cassandraPort));
 
-            Cluster cluster = Cluster.builder()
+            DseCluster cluster = DseCluster.builder()
                     .addContactPoints(cassandraHosts)
                     .withPort(cassandraPort)
                     .withClusterName(CLUSTER_NAME)
