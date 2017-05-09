@@ -2,8 +2,8 @@ package killrvideo.service;
 
 import static java.util.stream.Collectors.toMap;
 
-import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -18,7 +18,6 @@ import com.datastax.driver.dse.DseSession;
 import com.datastax.driver.dse.graph.*;
 import com.datastax.driver.mapping.MappingManager;
 import com.datastax.driver.mapping.Result;
-import com.google.gson.Gson;
 import killrvideo.entity.*;
 import killrvideo.utils.TypeConverter;
 import org.apache.commons.collections4.CollectionUtils;
@@ -251,43 +250,21 @@ public class SuggestedVideosService extends AbstractSuggestedVideoService {
             for (GraphNode n : videoIds) {
                 Vertex v = n.asVertex();
 
-                // Extract the videoid; the id of the video vertex is a json blob containing the videoid attribute.
-                Gson g = new Gson();
-                VideoVertexId videoVertexId = g.fromJson(v.getId().toString(), VideoVertexId.class);
-                String videoId = videoVertexId.getVideoId();
-                try {
-                    // The date string is in Zulu time, but ends in 'Z', which isn't a valid timezone specification.
-                    // Substitute with +0000 to make the date parser happy.
-                    String addedDateString = v.getProperty("added_date").getValue().asString().replace("Z", "+0000");
-                    result.add(
-                        SuggestedVideoPreview.newBuilder()
-                                .setAddedDate(TypeConverter.dateToTimestamp(dateFormat.parse(addedDateString)))
-                                .setName(v.getProperty("name").getValue().asString())
-                                .setPreviewImageLocation(v.getProperty("preview_image_location").getValue().asString())
-                                .setUserId(TypeConverter.uuidToUuid(UUID.fromString("966a83aa-6d8b-41b6-b4ac-79867de3b4fa")))
-                                // TODO: use the following user-id instead of the static value above.
-                                //.setUserId(TypeConverter.uuidToUuid(UUID.fromString(v.getProperty("userid").getValue().asString())))
-                                .setVideoId(TypeConverter.uuidToUuid(UUID.fromString(videoId)))
-                                .build()
-                    );
-                } catch (ParseException e) {
-                    e.printStackTrace();
-                }
+                // Extract the videoid from the id.
+                String videoId = v.getId().get("videoid").asString();
+                result.add(
+                    SuggestedVideoPreview.newBuilder()
+                            .setAddedDate(TypeConverter.instantToTimeStamp(v.getProperty("added_date").getValue().as(Instant.class)))
+                            .setName(v.getProperty("name").getValue().asString())
+                            .setPreviewImageLocation(v.getProperty("preview_image_location").getValue().asString())
+                            .setUserId(TypeConverter.uuidToUuid(UUID.fromString("e97c57dd-102f-41f7-adc1-418bb5d9de3f")))
+                            // TODO: use the following user-id instead of the static value above.
+                            //.setUserId(TypeConverter.uuidToUuid(v.getProperty("userid").getValue().as(UUID.class)))
+                            .setVideoId(TypeConverter.uuidToUuid(UUID.fromString(videoId)))
+                            .build()
+                );
             }
         }
         return result;
-    }
-
-    /**
-     * Class used in conjunction with GSon to parse a video vertex id
-     */
-    private class VideoVertexId {
-        private String videoid;
-
-        public VideoVertexId(){}
-
-        public String getVideoId() {
-            return videoid;
-        }
     }
 }
