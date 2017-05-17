@@ -13,7 +13,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
 
-import com.datastax.driver.core.Cluster;
+import com.datastax.driver.dse.DseCluster;
 import com.datastax.driver.core.Session;
 import com.xqbase.etcd4j.EtcdClient;
 
