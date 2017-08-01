@@ -3,6 +3,7 @@ package killrvideo.service;
 
 import static killrvideo.utils.ExceptionUtils.mergeStackTrace;
 
+import java.time.Instant;
 import java.util.Date;
 import java.util.UUID;
 import java.util.List;
@@ -15,7 +16,11 @@ import javax.inject.Inject;
 import com.datastax.driver.core.*;
 import com.datastax.driver.core.querybuilder.BuiltStatement;
 import com.datastax.driver.core.utils.MoreFutures;
+import com.datastax.driver.dse.DseSession;
+import com.datastax.driver.dse.graph.GraphStatement;
+import com.datastax.driver.dse.graph.SimpleGraphStatement;
 import com.datastax.driver.mapping.Result;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.MoreExecutors;
@@ -69,13 +74,13 @@ public class UserManagementService extends AbstractUserManagementService {
     @Inject
     KillrVideoInputValidator validator;
 
-    Session session;
+    DseSession session;
     private String usersTableName;
     private String userCredentialsTableName;
 
     @PostConstruct
     public void init(){
-        this.session = manager.getSession();
+        this.session = (DseSession) manager.getSession();
 
         usersTableName = userMapper.getTableMetadata().getName();
         userCredentialsTableName = userCredentialsMapper.getTableMetadata().getName();
@@ -174,6 +179,22 @@ public class UserManagementService extends AbstractUserManagementService {
                                         .setLastName(request.getLastName())
                                         .setTimestamp(TypeConverter.instantToTimeStamp(now.toInstant()))
                                         .build());
+                                String queryString =
+                                        "graph.addVertex(label, 'user', " +
+                                                "'userid', userId, " +
+                                                "'created_date', createdDate, " +
+                                                "'firstname', firstName, " +
+                                                "'lastname', lastName, " +
+                                                "'email', email)";
+                                GraphStatement statement = new SimpleGraphStatement(queryString, ImmutableMap.<String, Object>of(
+                                        "userId", userId,
+                                        "createdDate", Instant.now(),
+                                        "firstName", request.getFirstName(),
+                                        "lastName", request.getLastName(),
+                                        "email", email))
+                                        .setGraphName("killrvideo_graph").setReadTimeoutMillis(30000);
+
+                                session.executeGraph(statement);
                                 responseObserver.onNext(CreateUserResponse.newBuilder().build());
                                 responseObserver.onCompleted();
                             }

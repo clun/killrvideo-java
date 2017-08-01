@@ -31,7 +31,11 @@ import com.datastax.driver.core.ResultSet;
 import com.datastax.driver.core.Statement;
 import com.datastax.driver.core.querybuilder.BuiltStatement;
 import com.datastax.driver.core.querybuilder.QueryBuilder;
+import com.datastax.driver.dse.DseSession;
+import com.datastax.driver.dse.graph.GraphStatement;
+import com.datastax.driver.dse.graph.SimpleGraphStatement;
 import com.datastax.driver.mapping.Result;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.TypeToken;
 import com.google.common.util.concurrent.*;
 import com.sun.org.apache.bcel.internal.generic.LOOKUPSWITCH;
@@ -93,7 +97,7 @@ public class VideoCatalogService extends AbstractVideoCatalogService {
     @Inject
     KillrVideoInputValidator validator;
 
-    private Session session;
+    private DseSession session;
     private String latestVideosTableName;
     private String userVideosTableName;
     private PreparedStatement latestVideoPreview_startingPointPrepared;
@@ -103,7 +107,7 @@ public class VideoCatalogService extends AbstractVideoCatalogService {
 
     @PostConstruct
     public void init(){
-        this.session = manager.getSession();
+        this.session = (DseSession) manager.getSession();
 
         /**
          * Set the following up in PostConstruct because 1) we have to
@@ -157,9 +161,10 @@ public class VideoCatalogService extends AbstractVideoCatalogService {
             return;
         }
 
-        final Date now = new Date();
+        final Instant nowInstant = Instant.now();
+        final Date nowDate = Date.from(nowInstant);
         final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyyMMdd");
-        final String yyyyMMdd = dateFormat.format(now);
+        final String yyyyMMdd = dateFormat.format(nowDate);
         final String location = request.getYouTubeVideoId();
         final String previewImageLocation = "//img.youtube.com/vi/"+ location + "/hqdefault.jpg";
         final UUID videoId = UUID.fromString(request.getVideoId().getValue());
@@ -167,13 +172,13 @@ public class VideoCatalogService extends AbstractVideoCatalogService {
 
         final Statement s1 = videoMapper
                 .saveQuery(new Video(videoId, userId, request.getName(), request.getDescription(), location,
-                        VideoLocationType.YOUTUBE.ordinal(), previewImageLocation, Sets.newHashSet(request.getTagsList().iterator()), now));
+                        VideoLocationType.YOUTUBE.ordinal(), previewImageLocation, Sets.newHashSet(request.getTagsList().iterator()), nowDate));
 
         final Statement s2 = userVideosMapper
-                .saveQuery(new UserVideos(userId, videoId, request.getName(), previewImageLocation, now));
+                .saveQuery(new UserVideos(userId, videoId, request.getName(), previewImageLocation, nowDate));
 
         final Statement s3 = latestVideosMapper
-                .saveQuery(new LatestVideos(yyyyMMdd, userId, videoId, request.getName(), previewImageLocation, now)
+                .saveQuery(new LatestVideos(yyyyMMdd, userId, videoId, request.getName(), previewImageLocation, nowDate)
                         ,ttl(LATEST_VIDEOS_TTL_SECONDS));
 
         /**
@@ -183,7 +188,7 @@ public class VideoCatalogService extends AbstractVideoCatalogService {
         batchStatement.add(s1);
         batchStatement.add(s2);
         batchStatement.add(s3);
-        batchStatement.setDefaultTimestamp(now.getTime());
+        batchStatement.setDefaultTimestamp(nowDate.getTime());
 
         ResultSetFuture batchResultsFuture = session.executeAsync(batchStatement);
         FutureUtils.buildCompletableFuture(batchResultsFuture)
@@ -193,12 +198,12 @@ public class VideoCatalogService extends AbstractVideoCatalogService {
                          * See class {@link VideoAddedHandlers} for the impl
                          */
                         final YouTubeVideoAdded.Builder youTubeVideoAdded = YouTubeVideoAdded.newBuilder()
-                                .setAddedDate(TypeConverter.dateToTimestamp(now))
+                                .setAddedDate(TypeConverter.dateToTimestamp(nowDate))
                                 .setDescription(request.getDescription())
                                 .setLocation(location)
                                 .setName(request.getName())
                                 .setPreviewImageLocation(previewImageLocation)
-                                .setTimestamp(TypeConverter.dateToTimestamp(now))
+                                .setTimestamp(TypeConverter.dateToTimestamp(nowDate))
                                 .setUserId(request.getUserId())
                                 .setVideoId(request.getVideoId());
                         youTubeVideoAdded.addAllTags(Sets.newHashSet(request.getTagsList()));
@@ -206,6 +211,33 @@ public class VideoCatalogService extends AbstractVideoCatalogService {
                         //:TODO figure out if this is linked to handle() in VideoAddedHandlders
                         eventBus.post(youTubeVideoAdded.build());
 
+                        String queryString = "graph.addVertex(label, 'video', " +
+                                "'videoid', videoId, " +
+                                "'name', name, " +
+                                "'description', description, " +
+                                "'location', location, " +
+                                "'location_type', locationType, " +
+                                "'preview_image_location', previewImageLocation, " +
+                                "'added_date', addedDate, " +
+                                "'userid', userId)";
+                        GraphStatement statement = new SimpleGraphStatement(queryString, new ImmutableMap.Builder<String, Object>()
+                                .put("videoId", videoId)
+                                .put("name", request.getName())
+                                .put("description", request.getDescription())
+                                .put("location", location)
+                                .put("locationType", VideoLocationType.YOUTUBE.ordinal())
+                                .put("previewImageLocation", previewImageLocation)
+                                .put("addedDate", nowInstant)
+                                .put("userId", userId).build()
+                                )
+                                .setGraphName("killrvideo_graph").setReadTimeoutMillis(20000);
+
+
+                        try {
+                            session.executeGraph(statement);
+                        } catch (Exception e) {
+                            LOGGER.error("SANDMAN Exception submitting youtube video : " + e);
+                        }
                         responseObserver.onNext(SubmitYouTubeVideoResponse.newBuilder().build());
                         responseObserver.onCompleted();
 
