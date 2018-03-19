@@ -18,6 +18,22 @@ public class QueryCommentByVideo extends QueryDefinition {
     
     /** Comment offset if specified (Optional) */
     private Optional< UUID > commentId = Optional.empty();
+    
+    /**
+     * Default constructor.
+     */
+    public QueryCommentByVideo() {
+    }
+    
+    /**
+     * Init with videoid.
+     * 
+     * @param svideoId
+     *  target videoid
+     */
+    public QueryCommentByVideo(String svideoId) {
+        this.videoId = UUID.fromString(svideoId);
+    }
 
     /**
      * Getter for attribute 'commentId'.

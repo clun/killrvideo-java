@@ -1,17 +1,34 @@
+
+# SPRING-CLOUD-SLEUTH
 spring:
-  main:
-    banner-mode: "off"
-        
-# Support keys for our application
+  application:
+    name: killrvideo
+    
+ 
+# LOGGING
+logging:
+  level:
+    org.springframework.web: ERROR
+  pattern:
+    level: "%d{ABSOLUTE} [%X{X-B3-TraceId}/%X{X-B3-SpanId}] %-5p [%t] %C{2} - %m%n"
+ 
+tracing:
+  serviceName: killrvideo
+  zipkin:
+    enabled: true
+    url: http://127.0.0.1:9411/api/v2/spans
+ 
+       
 
 # Custom 'killrvideo' keys App
 killrvideo:
+
   application: 
     name: killrvideo
     instance: 
       id: 0
-  
-  grpc-server: 
+      
+  grpc: 
     port: 8899
   
   threadpool:

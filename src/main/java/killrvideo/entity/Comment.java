@@ -32,8 +32,7 @@ public class Comment implements Serializable, Schema {
     public static final String COLUMN_COMMENTID = "commentid";
     public static final String COLUMN_COMMENT   = "comment";
 
-    @NotNull
-    @Column
+    @Column @NotNull
     protected UUID userid;
     
     @NotNull

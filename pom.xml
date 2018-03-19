@@ -28,8 +28,6 @@
     <properties>
         
         <dse.version>1.5.1</dse.version>
-        
-        <!--  GRPC/ Protobuf (Service Exposition) -->
         <grpc.version>1.10.0</grpc.version>
         <protobuf.version>3.5.1-1</protobuf.version>
         <protobuf.java.version>3.5.1</protobuf.java.version>
@@ -47,9 +45,15 @@
         <retry4j.version>0.12.0</retry4j.version>
         <javax.inject.version>1</javax.inject.version>
         <logback.version>1.2.3</logback.version>
-       
+        <ff4j.version>1.7.1</ff4j.version>
+      
+    		<sleuth.version>2.0.0.M7</sleuth.version>
+    		<brave.version>4.18.0</brave.version>
+    		<zipkin.version>2.4.1</zipkin.version>
+		
         <!-- Validation -->
         <javax.el.api.version>3.0.0</javax.el.api.version>
+        <javax.validation>1.1.1</javax.validation>
         <validator.version>6.0.7.Final</validator.version>
         <validation.api.version>2.0.1.Final</validation.api.version>
         
@@ -90,7 +94,7 @@
         <name>DataStax</name>
         <url>https://datastax.com/</url>
     </organization>
-
+   
     <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
     <!-- ~ DEPENDENCIES             ~ -->
     <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
@@ -172,6 +176,13 @@
             <artifactId>commons-collections4</artifactId>
             <version>${commons-collections.version}</version>
         </dependency>
+        <!-- NOT ready for grpc1.10   
+		<dependency>
+    		    <groupId>org.lognet</groupId>
+    			<artifactId>grpc-spring-boot-starter</artifactId>
+    			<version>2.1.5</version>
+		</dependency>
+		 -->		
 
        <!-- ETCD Service Discovery -->
         <dependency>
@@ -202,7 +213,22 @@
 		<!--Spring -->
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot</artifactId>
+			<version>${spring-boot.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-autoconfigure</artifactId>
+			<version>${spring-boot.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter</artifactId>
+			<version>${spring-boot.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-json</artifactId>
 			<version>${spring-boot.version}</version>
 		</dependency>
 		<dependency>
@@ -211,11 +237,77 @@
 			<version>${spring-boot.version}</version>
 		</dependency>
 		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-aop</artifactId>
+			<version>${spring-boot.version}</version>
+		</dependency>
+		
+		<!-- Distributed Tracing -->
+		<dependency>
+    			<groupId>io.zipkin.brave</groupId>
+    			<artifactId>brave-instrumentation-grpc</artifactId>
+    			<version>${brave.version}</version>
+		</dependency>
+		<dependency>
+    			<groupId>io.zipkin.brave</groupId>
+    			<artifactId>brave-instrumentation-http</artifactId>
+    			<version>${brave.version}</version>
+		</dependency>
+		<dependency>
+    			<groupId>io.zipkin.brave</groupId>
+    			<artifactId>brave-instrumentation-spring-web</artifactId>
+    			<version>${brave.version}</version>
+		</dependency>
+		<dependency>
+    			<groupId>io.zipkin.brave</groupId>
+    			<artifactId>brave-instrumentation-spring-webmvc</artifactId>
+    			<version>${brave.version}</version>
+		</dependency>
+		<dependency>
+    			<groupId>io.zipkin.reporter2</groupId>
+    			<artifactId>zipkin-sender-okhttp3</artifactId>
+    			<version>${zipkin.version}</version>
+		</dependency>
+		<dependency>
+    			<groupId>io.zipkin.reporter2</groupId>
+    			<artifactId>zipkin-reporter</artifactId>
+    			<version>${zipkin.version}</version>
+		</dependency>
+		
+		<!-- (Brave, Zipkin, Sleuth) 
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-starter-sleuth</artifactId>
+			<version>${sleuth.version}</version>
+		</dependency>
+		<dependency>
+			<groupId>org.springframework.cloud</groupId>
+			<artifactId>spring-cloud-sleuth-zipkin</artifactId>
+			<version>${sleuth.version}</version>
+		</dependency>
+		-->
+		
+		<dependency>
 			<groupId>com.google.code.gson</groupId>
 			<artifactId>gson</artifactId>
 			<version>${gson.version}</version>
 		</dependency>
-
+        <dependency>
+            <groupId>org.ff4j</groupId>
+            <artifactId>ff4j-web</artifactId>
+            <version>${ff4j.version}</version>
+        </dependency>
+         <dependency>
+            <groupId>org.ff4j</groupId>
+            <artifactId>ff4j-web</artifactId>
+            <version>${ff4j.version}</version>
+        </dependency>
+		<dependency>
+		    <groupId>javax.activation</groupId>
+		    <artifactId>activation</artifactId>
+		    <version>${javax.validation}</version>
+		</dependency>
+			 
         <!-- Logging -->
         <dependency>
             <groupId>ch.qos.logback</groupId>
@@ -228,12 +320,15 @@
             <version>${logback.version}</version>
         </dependency>
         
+		
     </dependencies>
+
 
     <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
     <!-- ~ BUILD                    ~ -->
     <!-- ~~~~~~~~~~~~~~~~~~~~~~~~~~~~ -->
     <build>
+    
         <extensions>
             <extension>
                 <groupId>kr.motd.maven</groupId>
@@ -252,6 +347,28 @@
                     <target>${jre.version}</target>
                 </configuration>
             </plugin>
+            
+            <!-- Enforce generated resource in POM -->
+            <plugin>
+            <groupId>org.codehaus.mojo</groupId>
+            <artifactId>build-helper-maven-plugin</artifactId>
+            <version>3.0.0</version>
+            <executions>
+                <execution>
+                    <phase>generate-sources</phase>
+                    <goals>
+                        <goal>add-source</goal>
+                    </goals>
+                    <configuration>
+                        <sources>
+                            <source>target/generated-sources/annotations</source>
+                            <source>target/generated-sources/protobuf/java</source>
+                            <source>target/generated-sources/protobuf/grpc-java</source>
+                        </sources>
+                    </configuration>
+                </execution>
+            </executions>
+        </plugin>
             
             <plugin>
                 <groupId>org.xolstice.maven.plugins</groupId>
@@ -291,5 +408,16 @@
             </plugin>
         </plugins>
     </build>
+    
+    <repositories>
+	 <repository>
+		<id>spring-milestones</id>
+		<name>Spring Milestones</name>
+		<url>https://repo.spring.io/libs-milestone</url>
+		<snapshots>
+			<enabled>false</enabled>
+		</snapshots>
+	 </repository>
+   </repositories>
 
 </project>

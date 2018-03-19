@@ -32,10 +32,10 @@ public class KillrVideoConfiguration {
     @Value("${killrvideo.application.instance.id: 0}")
     private int applicationInstanceId;
     
-    @Value("${killrvideo.server.port: 8899}")
-    private int applicationPort;
+    @Value("${grpc.port: 8899}")
+    private int grpcPort;
     
-    @Value("#{environment.KILLRVIDEO_HOST_IP}")
+    @Value("#{environment.KILLRVIDEO_HOST_IP ?: '10.0.75.1'}")
     private String applicationHost;
     
     @Value("${killrvideo.cassandra.mutation-error-log: /tmp/killrvideo-mutation-errors.log}")
@@ -80,7 +80,7 @@ public class KillrVideoConfiguration {
     public Validator getBeanValidator() {
         return Validation.buildDefaultValidatorFactory().getValidator();
     }
-
+    
     /**
      * Getter for attribute 'applicationName'.
      *
@@ -100,17 +100,7 @@ public class KillrVideoConfiguration {
     public int getApplicationInstanceId() {
         return applicationInstanceId;
     }
-
-    /**
-     * Getter for attribute 'applicationPort'.
-     *
-     * @return
-     *       current value of 'applicationPort'
-     */
-    public int getApplicationPort() {
-        return applicationPort;
-    }
-
+    
     /**
      * Getter for attribute 'mutationErrorLog'.
      *
@@ -169,6 +159,16 @@ public class KillrVideoConfiguration {
      */
     public String getApplicationHost() {
         return applicationHost;
+    }
+
+    /**
+     * Getter for attribute 'grpcPort'.
+     *
+     * @return
+     *       current value of 'grpcPort'
+     */
+    public int getGrpcPort() {
+        return grpcPort;
     }
 
 }

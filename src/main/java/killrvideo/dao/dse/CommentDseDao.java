@@ -31,14 +31,15 @@ import com.datastax.driver.mapping.MappingManager;
 import com.google.common.util.concurrent.FutureCallback;
 import com.google.common.util.concurrent.Futures;
 
-import killrvideo.dao.bean.QueryCommentByVideo;
 import killrvideo.dao.bean.CommentListResult;
 import killrvideo.dao.bean.QueryCommentByUser;
+import killrvideo.dao.bean.QueryCommentByVideo;
 import killrvideo.entity.Comment;
 import killrvideo.entity.CommentByUser;
 import killrvideo.entity.CommentByVideo;
 import killrvideo.entity.Schema;
 import killrvideo.utils.FutureUtils;
+
 /**
  * Implementation of queries and related to {@link Comment} objects within DataStax Enterprise.
  * Comments are store in 2 tables and all queries are performed against Apache Cassandra.

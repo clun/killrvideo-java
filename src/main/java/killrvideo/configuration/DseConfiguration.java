@@ -81,8 +81,6 @@ public class DseConfiguration {
          long top = System.currentTimeMillis();
          LOGGER.info("Initializing connection to DSE Cluster...");
          Builder clusterConfig = new Builder();
-         // Use to test limit condition
-         // clusterConfig.addContactPointsWithPorts(asSocketInetAdress("localhost:9000").get());
          populateContactPoints(clusterConfig);
          populateAuthentication(clusterConfig);
          populateGraphOptions(clusterConfig);
@@ -94,7 +92,6 @@ public class DseConfiguration {
          
          RetryConfig config = new RetryConfigBuilder()
                  .retryOnAnyException()
-                  //.retryOnSpecificExceptions(NoHostAvailableException.class)
                  .withMaxNumberOfTries(maxNumberOfTries)
                  .withDelayBetweenTries(delayBetweenTries, ChronoUnit.SECONDS)
                  .withFixedBackoff()
@@ -117,8 +114,6 @@ public class DseConfiguration {
     
     @Bean
     public MappingManager initializeMappingManager(DseSession session) {
-        // TODO on peut passer le keyspace en dynamique
-        // 
         return new MappingManager(session);
     }
 
@@ -171,6 +166,7 @@ public class DseConfiguration {
      *      current configuration
      */
     private void populateContactPoints(Builder clusterConfig)  {
+        
         try {
             // Convert as list of inetAdress removing invalid format
             List < InetSocketAddress > clusterNodeAdresses = 

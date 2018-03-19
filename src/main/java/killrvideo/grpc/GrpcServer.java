@@ -15,8 +15,12 @@ import org.springframework.stereotype.Component;
 import com.google.common.eventbus.EventBus;
 import com.xqbase.etcd4j.EtcdClient;
 
+import brave.Tracing;
+import brave.grpc.GrpcTracing;
+import io.grpc.ManagedChannelBuilder;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
+import io.grpc.ServerInterceptors;
 import io.grpc.ServerServiceDefinition;
 import killrvideo.configuration.KillrVideoConfiguration;
 import killrvideo.dao.event.CassandraMutationErrorHandler;
@@ -77,7 +81,10 @@ public class GrpcServer {
 
     @Inject
     private CassandraMutationErrorHandler cassandraMutationErrorHandler;   
-
+    
+    @Inject
+    private Tracing braveTracing;
+    
     /**
      * GRPC Server to set up.
      */
@@ -89,6 +96,9 @@ public class GrpcServer {
     @PostConstruct
     public void start() throws Exception {
         applicationUID = config.getApplicationName().trim()  + ":" + config.getApplicationInstanceId();
+        
+        GrpcTracing grpcTracing = GrpcTracing.create(braveTracing);
+        
         LOGGER.info("Initializing Grpc Server...");
         // Binding Services
         final ServerServiceDefinition commentService        = this.commentService.bindService();
@@ -100,40 +110,56 @@ public class GrpcServer {
         final ServerServiceDefinition videoCatalogService   = this.videoCatalogService.bindService();
         final ServerServiceDefinition searchService         = this.searchService.bindService();
         
-        // Initializing GRPC endpoint
-        server = ServerBuilder.forPort(config.getApplicationPort())
+        // Initializing GRPC endpoint with Distributed Tracing Interceptor
+        server = ServerBuilder.forPort(config.getGrpcPort())
+                    /*
                     .addService(commentService)
-                    .addService(ratingService)
                     .addService(statisticsService)
                     .addService(suggestedVideoService)
                     .addService(uploadsService)
                     .addService(userManagementService)
-                    .addService(videoCatalogService)
                     .addService(searchService)
+                    .addService(ratingService)
+                    .addService(videoCatalogService)
+                    */
+                    .addService(ServerInterceptors.intercept(commentService, grpcTracing.newServerInterceptor()))
+                    .addService(ServerInterceptors.intercept(videoCatalogService, grpcTracing.newServerInterceptor()))
+                    .addService(ServerInterceptors.intercept(statisticsService, grpcTracing.newServerInterceptor()))
+                    .addService(ServerInterceptors.intercept(suggestedVideoService, grpcTracing.newServerInterceptor()))
+                    .addService(ServerInterceptors.intercept(uploadsService, grpcTracing.newServerInterceptor()))
+                    .addService(ServerInterceptors.intercept(userManagementService, grpcTracing.newServerInterceptor()))
+                    .addService(ServerInterceptors.intercept(searchService, grpcTracing.newServerInterceptor()))
+                    .addService(ServerInterceptors.intercept(ratingService, grpcTracing.newServerInterceptor()))
                     .build();
     
-        // Initialize Event bus
-        eventBus.register(suggestedVideosService);
-        eventBus.register(cassandraMutationErrorHandler);
-
-        /**
-         * Declare a shutdown hook otherwise the JVM
-         * cannot be stop since the Grpc server
-         * is listening on  a port forever
-         */
-        Runtime.getRuntime().addShutdownHook(new Thread() {
-            public void run() {
-                LOGGER.info("Calling shutdown for GrpcServer");
-                server.shutdown();
-            }
-        });
+            /**
+             * Declare a shutdown hook otherwise the JVM
+             * cannot be stop since the Grpc server
+             * is listening on  a port forever
+             */
+            Runtime.getRuntime().addShutdownHook(new Thread() {
+                public void run() {
+                    LOGGER.info("Calling shutdown for GrpcServer");
+                    server.shutdown();
+                }
+            });
 
         // Start Grpc listener
         server.start();
-        LOGGER.info("Grpc Server started on port: '{}'", config.getApplicationPort());
+        LOGGER.info("Grpc Server started on port: '{}'", config.getGrpcPort());
+       
+        ManagedChannelBuilder.forAddress(config.getApplicationHost(), config.getGrpcPort())
+                .intercept(grpcTracing.newClientInterceptor())
+                .usePlaintext(true)
+                .build();
+        
+        // Initialize Event bus
+        eventBus.register(suggestedVideosService);
+        eventBus.register(cassandraMutationErrorHandler);
+        LOGGER.info("Services now registered in EventBus");
         
         // Service are now Bound an started, declare in ETCD
-        final String applicationAdress = format("%s:%d", config.getApplicationHost(), config.getApplicationPort());
+        final String applicationAdress = format("%s:%d", config.getApplicationHost(), config.getGrpcPort());
         LOGGER.info("Registering services in ETCD with address {}", applicationAdress);
         registerServicesToEtcd(applicationAdress, 
                 commentService, ratingService, statisticsService,

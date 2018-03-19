@@ -11,6 +11,7 @@ import java.util.UUID;
 
 import javax.inject.Inject;
 
+import org.ff4j.FF4j;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -26,9 +27,9 @@ import killrvideo.comments.CommentsServiceOuterClass.GetUserCommentsRequest;
 import killrvideo.comments.CommentsServiceOuterClass.GetUserCommentsResponse;
 import killrvideo.comments.CommentsServiceOuterClass.GetVideoCommentsRequest;
 import killrvideo.comments.CommentsServiceOuterClass.GetVideoCommentsResponse;
-import killrvideo.dao.bean.QueryCommentByVideo;
 import killrvideo.dao.bean.CommentListResult;
 import killrvideo.dao.bean.QueryCommentByUser;
+import killrvideo.dao.bean.QueryCommentByVideo;
 import killrvideo.dao.dse.CommentDseDao;
 import killrvideo.dao.event.MessagingDao;
 import killrvideo.entity.Comment;
@@ -45,6 +46,8 @@ public class GrpcServiceComments extends CommentsServiceImplBase {
     /** Loger for that class. */
     private static Logger LOGGER = LoggerFactory.getLogger(GrpcServiceComments.class);
     
+    private static final String ASYNC_FLAG = "asyncCommentService";
+    
     /** Inter-service communication channel (messaging). */
     @Inject
     private MessagingDao msgDao;
@@ -52,6 +55,10 @@ public class GrpcServiceComments extends CommentsServiceImplBase {
     /** Communications and queries to DSE (Comment). */
     @Inject
     private CommentDseDao dseCommentDao;
+    
+    /** Feature Toggle. */
+    @Inject
+    private FF4j ff4j;
     
     /** JSR-303 Validator. */
     @Inject
@@ -82,7 +89,7 @@ public class GrpcServiceComments extends CommentsServiceImplBase {
          * => Pick the one relevant to your use cases
          * => To change behaviour of the killrVideo App, change the value in application.yaml file.
          **/ 
-        if (asynchronousExecution) {
+        if (ff4j.check(ASYNC_FLAG)) {
             
             // ASYNCHRONOUS works with ComputableFuture
             dseCommentDao.insertCommentAsync(q).whenComplete((result, error) -> {
@@ -133,7 +140,7 @@ public class GrpcServiceComments extends CommentsServiceImplBase {
          * => Pick the one relevant to your use cases
          * => To change behaviour of the killrVideo App, change the value in application.yaml file.
          **/ 
-        if (asynchronousExecution) {
+        if (ff4j.check(ASYNC_FLAG)) {
             
             // ASYNCHRONOUS works with ComputableFuture
             dseCommentDao.findCommentsByVideosIdAsync(query).whenComplete((result, error) -> {
@@ -183,7 +190,7 @@ public class GrpcServiceComments extends CommentsServiceImplBase {
          * => Pick the one relevant to your use cases
          * => To change behaviour of the killrVideo App, change the value in application.yaml file.
          **/ 
-        if (asynchronousExecution) {
+        if (ff4j.check(ASYNC_FLAG)) {
         
             // ASYNCHRONOUS works with ComputableFuture
             dseCommentDao.findCommentsByUserIdAsync(query).whenComplete((result, error) -> {
